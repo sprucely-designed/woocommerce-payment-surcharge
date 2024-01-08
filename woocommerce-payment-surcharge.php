@@ -7,46 +7,107 @@
  * Author URI: https://www.sprucely.net
  * WC requires at least: [Minimum WooCommerce version]
  * WC tested up to: [Last WooCommerce version tested]
+ *
+ * @package sprucely-wc-payment-surcharge
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
-    exit; // Exit if accessed directly
+	exit; // Exit if accessed directly.
 }
 
 /**
+ * Enqueues checkout scripts for the WooCommerce Payment Surcharge plugin.
+ *
+ * This function is responsible for enqueueing the JavaScript file that handles
+ * the dynamic update of payment surcharges on the checkout page. It ensures that
+ * the script is only loaded on the WooCommerce checkout page. The script listens
+ * for changes in the selected payment method and triggers an AJAX request to
+ * update the surcharge fees accordingly. The function also localizes the script,
+ * providing it with the necessary AJAX URL and security nonce.
+ *
+ * @hook wp_enqueue_scripts
+ */
+function sprucely_enqueue_checkout_scripts() {
+	if ( is_checkout() ) {
+		wp_enqueue_script( 'sprucely-checkout-js', plugin_dir_url( __FILE__ ) . 'js/sprucely-checkout.js', array(), '1.0.0', true );
+
+		wp_localize_script(
+			'sprucely-checkout-js',
+			'sprucelyAjax',
+			array(
+				'ajaxurl' => admin_url( 'admin-ajax.php' ),
+				'nonce'   => wp_create_nonce( 'sprucely-update-fee' ),
+			)
+		);
+	}
+}
+add_action( 'wp_enqueue_scripts', 'sprucely_enqueue_checkout_scripts' );
+
+// Include the settings file.
+require_once 'wc-payments-surcharge-settings.php';
+
+/**
  * Add a non-taxable surcharge to WooCommerce cart for specific payment methods.
- * 
+ *
  * @param WC_Cart $cart The cart object.
  */
 function sprucely_add_payment_surcharge( $cart ) {
-    if ( is_admin() && ! defined( 'DOING_AJAX' ) ) {
-        return;
-    }
+	if ( is_admin() && ! defined( 'DOING_AJAX' ) ) {
+		return;
+	}
 
-    $chosen_payment_method = WC()->session->get('chosen_payment_method');
+	$chosen_payment_method = WC()->session->get( 'chosen_payment_method' );
+	$payment_gateways      = WC()->payment_gateways->payment_gateways();
 
-    // Stripe Credit Card.
-    if ( $chosen_payment_method === 'stripe_cc' ) {
-        $surcharge_percentage = 2.9 / 100; // 2.9% surcharge
-        $surcharge_fixed = 0.30;           // Additional fixed surcharge
+	if ( isset( $payment_gateways[ $chosen_payment_method ] ) ) {
+		$gateway_settings = get_option( $chosen_payment_method . '_settings' );
 
-        $cart_total = $cart->cart_contents_total + $cart->shipping_total;
-        $total_with_surcharge = ($cart_total + $surcharge_fixed) / (1 - $surcharge_percentage);
-        $surcharge = $total_with_surcharge - $cart_total;
+		// Retrieve the custom settings.
+		$fixed_fee      = isset( $gateway_settings[ $chosen_payment_method . '_fixed_fee' ] ) ? wc_format_decimal( $gateway_settings[ $chosen_payment_method . '_fixed_fee' ] ) : 0;
+		$percentage_fee = isset( $gateway_settings[ $chosen_payment_method . '_percentage_fee' ] ) ? wc_format_decimal( $gateway_settings[ $chosen_payment_method . '_percentage_fee' ] ) / 100 : 0;
+		$min_fee        = isset( $gateway_settings[ $chosen_payment_method . '_min_fee' ] ) ? wc_format_decimal( $gateway_settings[ $chosen_payment_method . '_min_fee' ] ) : 0;
+		$max_fee        = isset( $gateway_settings[ $chosen_payment_method . '_max_fee' ] ) ? wc_format_decimal( $gateway_settings[ $chosen_payment_method . '_max_fee' ] ) : PHP_INT_MAX;
 
-        $cart->add_fee( __( 'Credit Card Surcharge', 'sprucely-designed' ), $surcharge, false, '' );
-    }
+		$cart_total     = $cart->cart_contents_total + $cart->shipping_total;
+		$calculated_fee = max( $min_fee, min( $cart_total * $percentage_fee + $fixed_fee, $max_fee ) );
 
-    // Stripe ACH.
-    else if ( $chosen_payment_method === 'stripe_ach' ) {
-        $surcharge_percentage = 0.8 / 100; // 0.8% surcharge.
-        $max_surcharge = 5.00;             // Maximum surcharge limit.
-
-        $cart_total = $cart->cart_contents_total + $cart->shipping_total;
-        $surcharge = min( $cart_total * $surcharge_percentage, $max_surcharge );
-
-        $cart->add_fee( __( 'ACH Surcharge', 'sprucely-designed' ), $surcharge, false, '' );
-    }
+		if ( $calculated_fee > 0 ) {
+			$cart->add_fee( __( 'Payment Method Surcharge', 'sprucely-designed' ), $calculated_fee, false, '' );
+		}
+	}
 }
 
 add_action( 'woocommerce_cart_calculate_fees', 'sprucely_add_payment_surcharge', 20, 1 );
+
+
+/**
+ * Handles the AJAX request to update the surcharge fees based on the selected payment method.
+ *
+ * This function responds to the AJAX call triggered when a customer changes their payment
+ * method at checkout. It updates the WooCommerce session with the newly selected payment method
+ * and recalculates the cart fees accordingly. After updating the session, it triggers a refresh
+ * of the WooCommerce checkout area to reflect the updated surcharge fees. The function is registered
+ * to both logged-in and guest AJAX actions to ensure functionality for all customers.
+ *
+ * @uses WC()->session Set the chosen payment method in the session.
+ * @uses WC()->cart->calculate_fees() Recalculate fees based on the new payment method.
+ * @uses wp_send_json_success() Send a successful JSON response back to the browser.
+ *
+ * @hook wp_ajax_sprucely_update_surcharge For logged-in users.
+ * @hook wp_ajax_nopriv_sprucely_update_surcharge For guests.
+ */
+function sprucely_ajax_update_surcharge() {
+	check_ajax_referer( 'sprucely-update-fee', 'nonce' );
+
+	$payment_method = isset( $_POST['payment_method'] ) ? sanitize_text_field( $_POST['payment_method'] ) : '';
+
+	WC()->session->set( 'chosen_payment_method', $payment_method );
+
+	// Recalculate fees (modify sprucely_add_payment_surcharge to be reusable here).
+	WC()->cart->calculate_fees();
+
+	wp_send_json_success();
+}
+add_action( 'wp_ajax_sprucely_update_surcharge', 'sprucely_ajax_update_surcharge' );
+add_action( 'wp_ajax_nopriv_sprucely_update_surcharge', 'sprucely_ajax_update_surcharge' );
+
