@@ -58,43 +58,23 @@ function sprucely_add_payment_surcharge( WC_Cart $cart ) {
 
 	$chosen_payment_method = WC()->session->get( 'chosen_payment_method' );
 
-	// Retrieve the surcharge settings
+	// Retrieve the surcharge settings.
 	$fixed_fee      = floatval( get_option( "{$chosen_payment_method}_fixed_fee", 0 ) );
 	$percentage_fee = floatval( get_option( "{$chosen_payment_method}_percentage_fee", 0 ) ) / 100;
-	$min_fee        = get_option( "{$chosen_payment_method}_min_fee" ); // Null if not set
-	$max_fee        = get_option( "{$chosen_payment_method}_max_fee" ); // Null if not set
+	$min_fee        = get_option( "{$chosen_payment_method}_min_fee" ); // Null if not set.
+	$max_fee        = get_option( "{$chosen_payment_method}_max_fee" ); // Null if not set.
 
-	// Calculate the initial surcharge
+	// Calculate the initial surcharge.
 	$cart_total = $cart->cart_contents_total + $cart->shipping_total;
 	$surcharge  = $cart_total * $percentage_fee + $fixed_fee;
 
-	// Apply min and max fee constraints
+	// Apply min and max fee constraints.
 	$surcharge = '' !== $min_fee ? max( $min_fee, $surcharge ) : $surcharge;
 	$surcharge = '' !== $max_fee ? min( $max_fee, $surcharge ) : $surcharge;
 
-	// Add the surcharge if it's greater than zero
-	if ( $surcharge > 0 ) {
-		$cart->add_fee( __( 'Payment Method Surcharge', 'sprucely-designed' ), $surcharge, false );
-	}
-
-	// Prepare the surcharge notice content.
-	$notice_content = "Chosen Payment Method: $chosen_payment_method\n"
-	. "Fixed Fee: $fixed_fee\n"
-	. "Percentage Fee: $percentage_fee\n"
-	. "Minimum Fee: $min_fee\n"
-	. "Maximum Fee: $max_fee\n"
-	. "Cart Total: $cart_total\n"
-	. "Surcharge: $surcharge\n\n";
-
-	// Add the notice
-	wc_add_notice( $notice_content, 'notice' );
+	// Add the surcharge.
+	$cart->add_fee( __( 'Payment Method Surcharge', 'sprucely-designed' ), $surcharge, false );
 }
-
-
-
-
-
-
 add_action( 'woocommerce_cart_calculate_fees', 'sprucely_add_payment_surcharge', 20, 1 );
 
 
@@ -128,4 +108,3 @@ function sprucely_ajax_update_surcharge() {
 }
 add_action( 'wp_ajax_sprucely_update_surcharge', 'sprucely_ajax_update_surcharge' );
 add_action( 'wp_ajax_nopriv_sprucely_update_surcharge', 'sprucely_ajax_update_surcharge' );
-
