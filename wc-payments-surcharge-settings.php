@@ -1,4 +1,16 @@
 <?php
+/**
+ * WooCommerce Payment Surcharge Settings.
+ *
+ * This file contains the settings logic for the WooCommerce Payment Surcharge plugin.
+ * It handles the addition of a custom settings tab in the WooCommerce settings,
+ * provides functions for rendering and saving the plugin's settings, and manages
+ * the retrieval and organization of these settings.
+ *
+ * @package sprucely-wc-payment-surcharge
+ * @author Sprucely Designed, LLC
+ */
+
 if ( ! defined( 'ABSPATH' ) ) {
 	exit; // Exit if accessed directly
 }
@@ -10,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * @return array $settings_tabs Array of WooCommerce setting tabs & their labels.
  */
 function sprucely_add_settings_tab( $settings_tabs ) {
-	$settings_tabs['payment_surcharges'] = __( 'Payment Surcharges', 'sprucely-designed' );
+	$settings_tabs['payment_surcharges'] = __( 'Payment Surcharges', 'sprucely-wc-payment-surcharge' );
 	return $settings_tabs;
 }
 add_filter( 'woocommerce_settings_tabs_array', 'sprucely_add_settings_tab', 50 );
@@ -39,7 +51,7 @@ add_action( 'woocommerce_update_options_payment_surcharges', 'sprucely_update_se
 function sprucely_get_settings() {
 	$settings = array(
 		'section_title' => array(
-			'name' => __( 'Payment Surcharges Settings', 'sprucely-designed' ),
+			'name' => __( 'Payment Surcharges Settings', 'sprucely-wc-payment-surcharge' ),
 			'type' => 'title',
 			'desc' => '',
 			'id'   => 'payment_surcharges_section_title',
@@ -55,44 +67,55 @@ function sprucely_get_settings() {
 			$gateway_title = $gateway->get_title();
 
 			// Add settings for each payment method
-			$settings[ $gateway_id . '_section' ] = array(
-				'name' => sprintf( __( '%s Surcharge Settings', 'sprucely-designed' ), $gateway_title ),
+			$settings[ 'spwcps_' . $gateway_id . '_section' ] = array(
+				'name' => sprintf( __( '%s Surcharge Settings', 'sprucely-wc-payment-surcharge' ), $gateway_title ),
 				'type' => 'title',
 				'desc' => '',
-				'id'   => $gateway_id . '_section_title',
+				'id'   => 'spwcps_' . $gateway_id . '_section_title',
 			);
 
-			$settings[ $gateway_id . '_fixed_fee' ] = array(
-				'name' => __( 'Fixed Fee', 'sprucely-designed' ),
+			$settings[ 'spwcps_' . $gateway_id . '_fee_name' ] = array(
+				'name' => __( 'Fee Display Name', 'sprucely-wc-payment-surcharge' ),
 				'type' => 'text',
-				'desc' => __( 'Fixed fee amount', 'sprucely-designed' ),
-				'id'   => $gateway_id . '_fixed_fee',
+				'desc' => __( 'Display name of fee or credit shown to customer at checkout. Defaults to "Payment Method Surcharge"', 'sprucely-wc-payment-surcharge' ),
+				'id'   => 'spwcps_' . $gateway_id . '_fee_name',
 			);
 
-			$settings[ $gateway_id . '_percentage_fee' ] = array(
-				'name' => __( 'Percentage Fee', 'sprucely-designed' ),
-				'type' => 'text',
-				'desc' => __( 'Percentage fee (without % sign)', 'sprucely-designed' ),
-				'id'   => $gateway_id . '_percentage_fee',
+			$settings[ 'spwcps_' . $gateway_id . '_fixed_fee' ] = array(
+				'name' => __( 'Fixed Fee', 'sprucely-wc-payment-surcharge' ),
+				'type' => 'number',
+				'desc' => __( 'Fixed fee amount', 'sprucely-wc-payment-surcharge' ),
+				'id'   => 'spwcps_' . $gateway_id . '_fixed_fee',
+				'step' => '0.01',
 			);
 
-			$settings[ $gateway_id . '_min_fee' ] = array(
-				'name' => __( 'Minimum Fee', 'sprucely-designed' ),
-				'type' => 'text',
-				'desc' => __( 'Minimum fee amount', 'sprucely-designed' ),
-				'id'   => $gateway_id . '_min_fee',
+			$settings[ 'spwcps_' . $gateway_id . '_percentage_fee' ] = array(
+				'name' => __( 'Percentage Fee', 'sprucely-wc-payment-surcharge' ),
+				'type' => 'number',
+				'desc' => __( 'Percentage fee (without % sign)', 'sprucely-wc-payment-surcharge' ),
+				'id'   => 'spwcps_' . $gateway_id . '_percentage_fee',
+				'step' => '0.1',
 			);
 
-			$settings[ $gateway_id . '_max_fee' ] = array(
-				'name' => __( 'Maximum Fee', 'sprucely-designed' ),
-				'type' => 'text',
-				'desc' => __( 'Maximum fee amount', 'sprucely-designed' ),
-				'id'   => $gateway_id . '_max_fee',
+			$settings[ 'spwcps_' . $gateway_id . '_min_fee' ] = array(
+				'name' => __( 'Minimum Fee', 'sprucely-wc-payment-surcharge' ),
+				'type' => 'number',
+				'desc' => __( 'Minimum fee amount', 'sprucely-wc-payment-surcharge' ),
+				'id'   => 'spwcps_' . $gateway_id . '_min_fee',
+				'step' => '0.01',
 			);
 
-			$settings[ $gateway_id . '_section_end' ] = array(
+			$settings[ 'spwcps_' . $gateway_id . '_max_fee' ] = array(
+				'name' => __( 'Maximum Fee', 'sprucely-wc-payment-surcharge' ),
+				'type' => 'number',
+				'desc' => __( 'Maximum fee amount', 'sprucely-wc-payment-surcharge' ),
+				'id'   => 'spwcps_' . $gateway_id . '_max_fee',
+				'step' => '0.01',
+			);
+
+			$settings[ 'spwcps_' . $gateway_id . '_section_end' ] = array(
 				'type' => 'sectionend',
-				'id'   => $gateway_id . '_section_end',
+				'id'   => 'spwcps_' . $gateway_id . '_section_end',
 			);
 		}
 	}

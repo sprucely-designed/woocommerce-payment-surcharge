@@ -5,11 +5,17 @@
  * Version: 1.0.0
  * Author: Sprucely Designed, LLC
  * Author URI: https://www.sprucely.net
- * WC requires at least: [Minimum WooCommerce version]
- * WC tested up to: [Last WooCommerce version tested]
+ * License: GPLv3 or later
+ * License URI: https://www.gnu.org/licenses/gpl-3.0.html
+ * Text Domain: sprucely-wc-payment-surcharge
+ * Domain Path: /languages
+ * WC requires at least: 3.0
+ * WC tested up to: 8.4.0
+ * Tags: woocommerce, payment, surcharge, checkout
  *
  * @package sprucely-wc-payment-surcharge
  */
+
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit; // Exit if accessed directly.
@@ -59,7 +65,7 @@ function sprucely_add_payment_surcharge( WC_Cart $cart ) {
 	$chosen_payment_method = WC()->session->get( 'chosen_payment_method' );
 
 	// Retrieve the surcharge settings.
-	$fee_name       = get_option( "spwcps_{$chosen_payment_method}_fee_name", __( 'Payment Method Surcharge', 'sprucely-designed' ) );
+	$fee_name       = get_option( "spwcps_{$chosen_payment_method}_fee_name", __( 'Payment Method Surcharge', 'sprucely-wc-payment-surcharge' ) );
 	$fixed_fee      = floatval( get_option( "spwcps_{$chosen_payment_method}_fixed_fee", 0 ) );
 	$percentage_fee = floatval( get_option( "spwcps_{$chosen_payment_method}_percentage_fee", 0 ) ) / 100;
 	$min_fee        = get_option( "spwcps_{$chosen_payment_method}_min_fee" ); // Null if not set.
