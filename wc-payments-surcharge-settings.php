@@ -105,3 +105,32 @@ function sprucely_get_settings() {
     return apply_filters( 'sprucely_settings', $settings );
 }
 
+/**
+ * Validate and sanitize the options.
+ *
+ * @param mixed  $value The unsanitized value.
+ * @param mixed  $option The option array.
+ * @param mixed  $raw_value The raw unsanitized value.
+ * @return mixed The sanitized value.
+ */
+function sprucely_validate_and_sanitize_options( $value, $option, $raw_value ) {
+    $option_id = $option['id'];
+
+    // Only process our own options
+    if ( strpos( $option_id, 'fixed_fee' ) !== false || strpos( $option_id, 'percentage_fee' ) !== false ||
+         strpos( $option_id, 'min_fee' ) !== false || strpos( $option_id, 'max_fee' ) !== false ) {
+
+        // Sanitize as a decimal number
+        $sanitized_value = wc_format_decimal( $raw_value );
+
+        // Additional validation can be added here if necessary
+        // For example, check if the value is a non-negative number
+
+        return $sanitized_value;
+    }
+
+    return $value;
+}
+add_filter( 'woocommerce_admin_settings_sanitize_option', 'sprucely_validate_and_sanitize_options', 10, 3 );
+
+
