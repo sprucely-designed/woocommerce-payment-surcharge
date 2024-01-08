@@ -60,13 +60,28 @@ function sprucely_add_payment_surcharge( $cart ) {
 	$payment_gateways      = WC()->payment_gateways->payment_gateways();
 
 	if ( isset( $payment_gateways[ $chosen_payment_method ] ) ) {
-		$gateway_settings = get_option( $chosen_payment_method . '_settings' );
+		// Retrieve and log the custom settings
+		$fixed_fee_option      = $chosen_payment_method . '_fixed_fee';
+		$percentage_fee_option = $chosen_payment_method . '_percentage_fee';
+		$min_fee_option        = $chosen_payment_method . '_min_fee';
+		$max_fee_option        = $chosen_payment_method . '_max_fee';
 
-		// Retrieve the custom settings.
-		$fixed_fee      = isset( $gateway_settings[ $chosen_payment_method . '_fixed_fee' ] ) ? wc_format_decimal( $gateway_settings[ $chosen_payment_method . '_fixed_fee' ] ) : 0;
-		$percentage_fee = isset( $gateway_settings[ $chosen_payment_method . '_percentage_fee' ] ) ? wc_format_decimal( $gateway_settings[ $chosen_payment_method . '_percentage_fee' ] ) / 100 : 0;
-		$min_fee        = isset( $gateway_settings[ $chosen_payment_method . '_min_fee' ] ) ? wc_format_decimal( $gateway_settings[ $chosen_payment_method . '_min_fee' ] ) : 0;
-		$max_fee        = isset( $gateway_settings[ $chosen_payment_method . '_max_fee' ] ) ? wc_format_decimal( $gateway_settings[ $chosen_payment_method . '_max_fee' ] ) : PHP_INT_MAX;
+		$fixed_fee      = get_option( $fixed_fee_option, 0 );
+		$percentage_fee = get_option( $percentage_fee_option, 0 ) / 100;
+		$min_fee        = get_option( $min_fee_option, 0 );
+		$max_fee        = get_option( $max_fee_option, PHP_INT_MAX );
+
+		// Log the retrieved options for debugging
+		error_log( 'Fixed Fee: ' . $fixed_fee );
+		error_log( 'Percentage Fee: ' . $percentage_fee );
+		error_log( 'Minimum Fee: ' . $min_fee );
+		error_log( 'Maximum Fee: ' . $max_fee );
+
+		// Validate numeric values
+		if ( ! is_numeric( $fixed_fee ) || ! is_numeric( $percentage_fee ) || ! is_numeric( $min_fee ) || ! is_numeric( $max_fee ) ) {
+			error_log( 'One of the surcharge values is not numeric.' );
+			return;
+		}
 
 		$cart_total     = $cart->cart_contents_total + $cart->shipping_total;
 		$calculated_fee = max( $min_fee, min( $cart_total * $percentage_fee + $fixed_fee, $max_fee ) );
@@ -76,6 +91,7 @@ function sprucely_add_payment_surcharge( $cart ) {
 		}
 	}
 }
+
 
 add_action( 'woocommerce_cart_calculate_fees', 'sprucely_add_payment_surcharge', 20, 1 );
 
