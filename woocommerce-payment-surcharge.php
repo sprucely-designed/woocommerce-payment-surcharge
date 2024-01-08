@@ -59,21 +59,27 @@ function sprucely_add_payment_surcharge( WC_Cart $cart ) {
 	$chosen_payment_method = WC()->session->get( 'chosen_payment_method' );
 
 	// Retrieve the surcharge settings.
-	$fixed_fee      = floatval( get_option( "{$chosen_payment_method}_fixed_fee", 0 ) );
-	$percentage_fee = floatval( get_option( "{$chosen_payment_method}_percentage_fee", 0 ) ) / 100;
-	$min_fee        = get_option( "{$chosen_payment_method}_min_fee" ); // Null if not set.
-	$max_fee        = get_option( "{$chosen_payment_method}_max_fee" ); // Null if not set.
+	$fee_name       = get_option( "spwcps_{$chosen_payment_method}_fee_name", __( 'Payment Method Surcharge', 'sprucely-designed' ) );
+	$fixed_fee      = floatval( get_option( "spwcps_{$chosen_payment_method}_fixed_fee", 0 ) );
+	$percentage_fee = floatval( get_option( "spwcps_{$chosen_payment_method}_percentage_fee", 0 ) ) / 100;
+	$min_fee        = get_option( "spwcps_{$chosen_payment_method}_min_fee" ); // Null if not set.
+	$max_fee        = get_option( "spwcps_{$chosen_payment_method}_max_fee" ); // Null if not set.
 
 	// Calculate the initial surcharge.
 	$cart_total = $cart->cart_contents_total + $cart->shipping_total;
-	$surcharge  = $cart_total * $percentage_fee + $fixed_fee;
+	// Calculate the surcharge as a part of the total.
+	// Equation: total = cart_total + surcharge_percentage * total + surcharge_fixed.
+	// Solved for total: total = (cart_total + surcharge_fixed) / (1 - surcharge_percentage).
+	// @see https://support.stripe.com/questions/passing-the-stripe-fee-on-to-customers
+	$total_with_surcharge = ( $cart_total + $fixed_fee ) / ( 1 - $percentage_fee );
+	$surcharge            = $total_with_surcharge - $cart_total;
 
 	// Apply min and max fee constraints.
 	$surcharge = '' !== $min_fee ? max( $min_fee, $surcharge ) : $surcharge;
 	$surcharge = '' !== $max_fee ? min( $max_fee, $surcharge ) : $surcharge;
 
 	// Add the surcharge.
-	$cart->add_fee( __( 'Payment Method Surcharge', 'sprucely-designed' ), $surcharge, false );
+	$cart->add_fee( $fee_name, $surcharge, false );
 }
 add_action( 'woocommerce_cart_calculate_fees', 'sprucely_add_payment_surcharge', 20, 1 );
 
