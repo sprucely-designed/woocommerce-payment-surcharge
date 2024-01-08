@@ -51,46 +51,48 @@ require_once 'wc-payments-surcharge-settings.php';
  *
  * @param WC_Cart $cart The cart object.
  */
-function sprucely_add_payment_surcharge( $cart ) {
+function sprucely_add_payment_surcharge( WC_Cart $cart ) {
 	if ( is_admin() && ! defined( 'DOING_AJAX' ) ) {
 		return;
 	}
 
 	$chosen_payment_method = WC()->session->get( 'chosen_payment_method' );
-	$payment_gateways      = WC()->payment_gateways->payment_gateways();
 
-	if ( isset( $payment_gateways[ $chosen_payment_method ] ) ) {
-		// Retrieve and log the custom settings
-		$fixed_fee_option      = $chosen_payment_method . '_fixed_fee';
-		$percentage_fee_option = $chosen_payment_method . '_percentage_fee';
-		$min_fee_option        = $chosen_payment_method . '_min_fee';
-		$max_fee_option        = $chosen_payment_method . '_max_fee';
+	// Retrieve the surcharge settings
+	$fixed_fee      = floatval( get_option( "{$chosen_payment_method}_fixed_fee", 0 ) );
+	$percentage_fee = floatval( get_option( "{$chosen_payment_method}_percentage_fee", 0 ) ) / 100;
+	$min_fee        = get_option( "{$chosen_payment_method}_min_fee" ); // Null if not set
+	$max_fee        = get_option( "{$chosen_payment_method}_max_fee" ); // Null if not set
 
-		$fixed_fee      = get_option( $fixed_fee_option, 0 );
-		$percentage_fee = get_option( $percentage_fee_option, 0 ) / 100;
-		$min_fee        = get_option( $min_fee_option, 0 );
-		$max_fee        = get_option( $max_fee_option, PHP_INT_MAX );
+	// Calculate the initial surcharge
+	$cart_total = $cart->cart_contents_total + $cart->shipping_total;
+	$surcharge  = $cart_total * $percentage_fee + $fixed_fee;
 
-		// Log the retrieved options for debugging
-		error_log( 'Fixed Fee: ' . $fixed_fee );
-		error_log( 'Percentage Fee: ' . $percentage_fee );
-		error_log( 'Minimum Fee: ' . $min_fee );
-		error_log( 'Maximum Fee: ' . $max_fee );
+	// Apply min and max fee constraints
+	$surcharge = '' !== $min_fee ? max( $min_fee, $surcharge ) : $surcharge;
+	$surcharge = '' !== $max_fee ? min( $max_fee, $surcharge ) : $surcharge;
 
-		// Validate numeric values
-		if ( ! is_numeric( $fixed_fee ) || ! is_numeric( $percentage_fee ) || ! is_numeric( $min_fee ) || ! is_numeric( $max_fee ) ) {
-			error_log( 'One of the surcharge values is not numeric.' );
-			return;
-		}
-
-		$cart_total     = $cart->cart_contents_total + $cart->shipping_total;
-		$calculated_fee = max( $min_fee, min( $cart_total * $percentage_fee + $fixed_fee, $max_fee ) );
-
-		if ( $calculated_fee > 0 ) {
-			$cart->add_fee( __( 'Payment Method Surcharge', 'sprucely-designed' ), $calculated_fee, false, '' );
-		}
+	// Add the surcharge if it's greater than zero
+	if ( $surcharge > 0 ) {
+		$cart->add_fee( __( 'Payment Method Surcharge', 'sprucely-designed' ), $surcharge, false );
 	}
+
+	// Prepare the surcharge notice content.
+	$notice_content = "Chosen Payment Method: $chosen_payment_method\n"
+	. "Fixed Fee: $fixed_fee\n"
+	. "Percentage Fee: $percentage_fee\n"
+	. "Minimum Fee: $min_fee\n"
+	. "Maximum Fee: $max_fee\n"
+	. "Cart Total: $cart_total\n"
+	. "Surcharge: $surcharge\n\n";
+
+	// Add the notice
+	wc_add_notice( $notice_content, 'notice' );
 }
+
+
+
+
 
 
 add_action( 'woocommerce_cart_calculate_fees', 'sprucely_add_payment_surcharge', 20, 1 );
